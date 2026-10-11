@@ -1,5 +1,5 @@
 # ==================================================
-# 💡 終極防爆：解決雲端無黑視窗環境導致 FinMind 崩潰的 Bug (絕對不能漏掉這段)
+# 💡 終極防爆：解決雲端無黑視窗環境導致 FinMind 崩潰的 Bug
 # ==================================================
 import sys
 import os
@@ -132,29 +132,37 @@ def handle_message(event):
     global global_multiplier, stock_list
     user_msg = event.message.text.strip()
     
-    # 💡 捷徑一：開始選股
+    # 💡 捷徑一：開始選股 (最單純，完全不拆解文字，絕對不爆錯)
     if user_msg == "選股" or user_msg == "1" or user_msg.lower() == "a":
         result_text = run_strategy_for_line(volume_multiplier=global_multiplier)
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=result_text))
-        
+        return
+
+    # 💡 針對帶有參數的指令，先切碎文字 (加上防呆檢查)
+    parts = user_msg.split()
+    
     # 💡 捷徑二：修改倍數 (格式: 2 1.5)
-    elif user_msg.startswith("修改倍數") or user_msg.startswith("2 ") or user_msg.lower().startswith("b "):
+    if user_msg.startswith("修改倍數") or user_msg.startswith("2 ") or user_msg.lower().startswith("b "):
         try:
-            parts = user_msg.split()
-            global_multiplier = float(parts[1])
-            success_text = f"✅ 門檻倍數已成功修改為：{global_multiplier} 倍！\n下一次輸入【1】時將自動套用新門檻。"
+            if len(parts) >= 2:
+                global_multiplier = float(parts[1])
+                success_text = f"✅ 門檻倍數已成功修改為：{global_multiplier} 倍！\n下一次輸入【1】時將自動套用新門檻。"
+            else:
+                success_text = "❌ 格式錯誤！請輸入【2 數字】，例如：2 1.5"
             line_bot_api.reply_message(event.reply_token, TextSendMessage(text=success_text))
         except Exception:
-            line_bot_api.reply_message(event.reply_token, TextSendMessage(text="❌ 修改失敗，請輸入正確快捷格式，例如：2 1.5"))
+            line_bot_api.reply_message(event.reply_token, TextSendMessage(text="❌ 修改失敗，請輸入正確數字，例如：2 1.5"))
 
     # 💡 捷徑三：增加股票 (格式: 3 2382 廣達)
     elif user_msg.startswith("增加股票") or user_msg.startswith("3 ") or user_msg.lower().startswith("c "):
         try:
-            parts = user_msg.split()
-            new_id = str(parts[1])
-            new_name = str(parts[2])
-            stock_list[new_id] = new_name
-            success_text = f"✅ 已成功將【{new_id} {new_name}】加入監控清單！"
+            if len(parts) >= 3:
+                new_id = str(parts[1])
+                new_name = str(parts[2])
+                stock_list[new_id] = new_name
+                success_text = f"✅ 已成功將【{new_id} {new_name}】加入監控清單！"
+            else:
+                success_text = "❌ 格式錯誤！請輸入【3 代號 名稱】，例如：3 2382 廣達"
             line_bot_api.reply_message(event.reply_token, TextSendMessage(text=success_text))
         except Exception:
             line_bot_api.reply_message(event.reply_token, TextSendMessage(text="❌ 增加失敗，請輸入正確快捷格式，例如：3 2382 廣達"))
@@ -162,19 +170,21 @@ def handle_message(event):
     # 💡 捷徑四：刪除股票 (格式: 4 3042)
     elif user_msg.startswith("刪除股票") or user_msg.startswith("4 ") or user_msg.lower().startswith("d "):
         try:
-            parts = user_msg.split()
-            del_id = str(parts[1])
-            if del_id in stock_list:
-                del_name = stock_list[del_id]
-                del stock_list[del_id]
-                success_text = f"❌ 已成功將【{del_id} {del_name}】從清單中移除！"
+            if len(parts) >= 2:
+                del_id = str(parts[1])
+                if del_id in stock_list:
+                    del_name = stock_list[del_id]
+                    del stock_list[del_id]
+                    success_text = f"❌ 已成功將【{del_id} {del_name}】從清單中移除！"
+                else:
+                    success_text = f"⚠️ 刪除失敗：清單中原本就沒有 {del_id} 這檔股票。"
             else:
-                success_text = f"⚠️ 刪除失敗：清單中原本就沒有 {del_id} 這檔股票。"
+                success_text = "❌ 格式錯誤！請輸入【4 代號】，例如：4 3042"
             line_bot_api.reply_message(event.reply_token, TextSendMessage(text=success_text))
         except Exception:
             line_bot_api.reply_message(event.reply_token, TextSendMessage(text="❌ 刪除失敗，請輸入正確快捷格式，例如：4 3042"))
 
-    # 💡 快捷鍵選單提示文字
+    # 💡 快捷鍵選單提示文字 (當輸入不認得的字或打錯格式時)
     else:
         info_text = "🤖 您好！我是您的台股 AI 助手。\n\n"
         info_text += "您可以直接輸入【數字】或【英文】捷徑來控制我：\n"
@@ -186,7 +196,3 @@ def handle_message(event):
         info_text += "-------------------------\n"
         info_text += "💡 提示：指令與代號之間記得空一格喔！"
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=info_text))
-
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
