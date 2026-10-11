@@ -116,8 +116,7 @@ def callback():
     except InvalidSignatureError:
         abort(400)
     return 'OK'
-    
-@handler.add(MessageEvent, message=TextMessage)
+ @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
     global global_multiplier, stock_list # 宣告使用外部的全域變數
     user_msg = event.message.text.strip()
@@ -176,6 +175,8 @@ def handle_message(event):
         info_text += "-------------------------\n"
         info_text += "💡 提示：指令與代號之間記得空一格喔！"
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=info_text))
+   
+
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
