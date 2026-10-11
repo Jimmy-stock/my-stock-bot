@@ -14,15 +14,17 @@ from linebot.models import MessageEvent, TextMessage, TextSendMessage
 app = Flask(__name__)
 
 # ==================================================
-# 🔑 關鍵設定：已為您精準填入最新申請的 LINE 通關憑證
+# 🔑 關鍵設定：保持您最新申請的 LINE 通關憑證
 # ==================================================
-LINE_CHANNEL_ACCESS_TOKEN = 'nVnfDE3AZrJIouniBoNSchLCpyLSL2nlwO7zr+twctQF2L1AxFqogyxLBHDay05h/B9uDrmMvjrIXTR2yhLVc9VJmwtFWwrd7Hef5V7r8uC72PbQo/nBADAsn8zSfINI+U3iEBSOTxtpI7tVHVs5IAdB04t89/1O/w1cDnyilFU='
-LINE_CHANNEL_SECRET = '376de8130a560b7b7751c0de7d071375'
+LINE_CHANNEL_ACCESS_TOKEN = 'nVnfDE3AZrJIouniBoNSchLCpyLSL2nlwO7zr+twctQF2L1AxFqogyxLBHDay05h/B9uDrmMvjrIXTR2yhLVc9VJmwtFWwrd7Hef5V7r8uC72PbQo/nBADAsn8zSfINI+U3iEBSOTxtpl7tVHVs5IAdB04t89/1O/w1cDnyilFU='
+LINE_CHANNEL_SECRET = '376de813a560b7b7751c0de7d071375'
 
 line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
 
-# 您指定的精選追蹤個股名單 (後續在 GitHub 上也可以隨時增減)
+# 💡 升級重點：將變數移到最外層，變成可動態自訂的「全域記憶體」
+global_multiplier = 1.2
+
 stock_list = {
     '2340': '台亞',
     '3042': '晶技',
@@ -33,16 +35,15 @@ stock_list = {
 }
 
 # ==================================================
-# 📊 核心策略分析邏輯 (即時動態計算版)
+# 📊 核心策略分析邏輯
 # ==================================================
-def run_strategy_for_line(volume_multiplier=1.2):
+def run_strategy_for_line(volume_multiplier):
     dl = DataLoader()
     today_dt = datetime.date.today()
     end_date = today_dt.strftime("%Y-%m-%d")
     start_date = (today_dt - datetime.timedelta(days=25)).strftime("%Y-%m-%d")
 
     now_time = datetime.datetime.now().time()
-    # 判斷是不是台股開盤時間
     is_market_open = (today_dt.weekday() < 5) and (datetime.time(9, 0) <= now_time <= datetime.time(13, 35))
 
     reply_msg = f"📊【台股主力爆量篩選】\n"
@@ -54,7 +55,6 @@ def run_strategy_for_line(volume_multiplier=1.2):
 
     for stock_id, stock_name in stock_list.items():
         try:
-            # 抓取歷史大數據
             df_hist = dl.taiwan_stock_daily(stock_id=stock_id, start_date=start_date, end_date=end_date)
             if df_hist.empty:
                 continue
@@ -62,7 +62,6 @@ def run_strategy_for_line(volume_multiplier=1.2):
             df_hist['張數'] = df_hist['Trading_Volume'] / 1000
             
             if is_market_open:
-                # 💡 盤中即時模式
                 df_tick = dl.taiwan_stock_tick(stock_id=stock_id, date=end_date)
                 if not df_tick.empty:
                     current_price = df_tick['price'].iloc[-1]
@@ -76,7 +75,6 @@ def run_strategy_for_line(volume_multiplier=1.2):
                     five_day_avg = df_hist['張數'].rolling(5).mean().iloc[-1]
                     status_lbl = ""
             else:
-                # 💡 盤後模式
                 latest_day = df_hist.iloc[-1]
                 current_price = latest_day['close']
                 today_volume = latest_day['張數']
@@ -89,7 +87,6 @@ def run_strategy_for_line(volume_multiplier=1.2):
             if is_volume_up:
                 matched_stocks.append(stock_name)
                 
-            # 串接每一檔股票的戰況文字
             reply_msg += f"📈 {stock_name}({stock_id})：{current_price}元{status_lbl}\n"
             reply_msg += f" 🔹今日：{today_volume:.1f}張\n"
             reply_msg += f" 🔹均量：{five_day_avg:.1f}張\n"
@@ -108,7 +105,7 @@ def run_strategy_for_line(volume_multiplier=1.2):
     return reply_msg
 
 # ==================================================
-# 🌐 3. 接收 LINE 伺服器訊號的網頁接口
+# 🌐 3. 接收 LINE 訊號與 AI 指令解析
 # ==================================================
 @app.route("/callback", methods=['POST'])
 def callback():
@@ -120,23 +117,63 @@ def callback():
         abort(400)
     return 'OK'
 
-# 手機傳 LINE 訊息進來時會自動觸發這裡
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
+    global global_multiplier, stock_list # 宣告使用外部的全域變數
     user_msg = event.message.text.strip()
     
+    # 💡 功能一：標準選股指令
     if user_msg == "選股":
-        # 呼叫大數據分析
-        result_text = run_strategy_for_line(volume_multiplier=1.2)
-        # 回傳精美分析結果
+        result_text = run_strategy_for_line(volume_multiplier=global_multiplier)
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=result_text))
+        
+    # 💡 功能二：手機直接遙控修改倍數 (格式: 修改倍數 1.5)
+    elif user_msg.startswith("修改倍數"):
+        try:
+            parts = user_msg.split()
+            global_multiplier = float(parts[1])
+            success_text = f"✅ 門檻倍數已成功修改為：{global_multiplier} 倍！\n下一次輸入【選股】時將自動套用新門檻。"
+            line_bot_api.reply_message(event.reply_token, TextSendMessage(text=success_text))
+        except Exception:
+            line_bot_api.reply_message(event.reply_token, TextSendMessage(text="❌ 修改失敗，請輸入正確格式，例如：修改倍數 1.5"))
+
+    # 💡 功能三：手機直接動態增加股票 (格式: 增加股票 2382 廣達)
+    elif user_msg.startswith("增加股票"):
+        try:
+            parts = user_msg.split()
+            new_id = parts[1]
+            new_name = parts[2]
+            stock_list[new_id] = new_name
+            success_text = f"✅ 已成功將【{new_id} {new_name}】加入監控清單！"
+            line_bot_api.reply_message(event.reply_token, TextSendMessage(text=success_text))
+        except Exception:
+            line_bot_api.reply_message(event.reply_token, TextSendMessage(text="❌ 增加失敗，請輸入正確格式，例如：增加股票 2382 廣達"))
+
+    # 💡 功能四：手機直接動態刪除股票 (格式: 刪除股票 3042)
+    elif user_msg.startswith("刪除股票"):
+        try:
+            parts = user_msg.split()
+            del_id = parts[1]
+            if del_id in stock_list:
+                del_name = stock_list[del_id]
+                del stock_list[del_id]
+                success_text = f"❌ 已成功將【{del_id} {del_name}】從清單中移除！"
+            else:
+                success_text = f"⚠️ 刪除失敗：清單中原本就沒有 {del_id} 這檔股票。"
+            line_bot_api.reply_message(event.reply_token, TextSendMessage(text=success_text))
+        except Exception:
+            line_bot_api.reply_message(event.reply_token, TextSendMessage(text="❌ 刪除失敗，請輸入正確格式，例如：刪除股票 3042"))
+
+    # 💡 其他防呆罐頭回覆
     else:
-        line_bot_api.reply_message(
-            event.reply_token, 
-            TextSendMessage(text="🤖 您好！我是您的台股 AI 助手。請在對話框輸入【選股】，我馬上為您連線證交所分析最新的主力爆量訊號！")
-        )
+        info_text = "🤖 您好！我是您的台股 AI 助手。\n\n"
+        info_text += "您可以輸入以下指令遙控我：\n"
+        info_text += "👉 1. 輸入【選股】開始大數據分析\n"
+        info_text += "👉 2. 輸入【修改倍數 1.5】調整門檻\n"
+        info_text += "👉 3. 輸入【增加股票 2382 廣達】加入監控\n"
+        info_text += "👉 4. 輸入【刪除股票 3042】移除個股"
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=info_text))
 
 if __name__ == "__main__":
-    # 💡 雲端必備：自動動態讀取雲端環境分配的 Port
-    port = int(os.environ.get('PORT', 10000))
-    app.run(host='0.0.0.0', port=port)
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
