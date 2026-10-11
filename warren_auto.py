@@ -132,13 +132,13 @@ def handle_message(event):
     global global_multiplier, stock_list
     user_msg = event.message.text.strip()
     
-    # 💡 捷徑一：開始選股 (最單純，完全不拆解文字，絕對不爆錯)
+    # 💡 捷徑一：開始選股
     if user_msg == "選股" or user_msg == "1" or user_msg.lower() == "a":
         result_text = run_strategy_for_line(volume_multiplier=global_multiplier)
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=result_text))
         return
 
-    # 💡 針對帶有參數的指令，先切碎文字 (加上防呆檢查)
+    # 針對帶有參數的指令先拆解文字
     parts = user_msg.split()
     
     # 💡 捷徑二：修改倍數 (格式: 2 1.5)
@@ -184,7 +184,7 @@ def handle_message(event):
         except Exception:
             line_bot_api.reply_message(event.reply_token, TextSendMessage(text="❌ 刪除失敗，請輸入正確快捷格式，例如：4 3042"))
 
-    # 💡 快捷鍵選單提示文字 (當輸入不認得的字或打錯格式時)
+    # 💡 快捷鍵選單提示文字
     else:
         info_text = "🤖 您好！我是您的台股 AI 助手。\n\n"
         info_text += "您可以直接輸入【數字】或【英文】捷徑來控制我：\n"
@@ -196,3 +196,7 @@ def handle_message(event):
         info_text += "-------------------------\n"
         info_text += "💡 提示：指令與代號之間記得空一格喔！"
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=info_text))
+
+if __name__ == "__main__":
+    # 💡 終極強制修正：不再讀取環境變數，直接把開機通訊 Port 鎖死在免費伺服器專用的 10000 上！
+    app.run(host="0.0.0.0", port=10000)
