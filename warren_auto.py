@@ -45,13 +45,14 @@ stock_list = {
 }
 
 # ==================================================
-# 📊 核心策略分析邏輯
+# 📊 核心策略分析邏輯 (內建假日/盤後空白防呆盾牌)
 # ==================================================
 def run_strategy_for_line(volume_multiplier):
     dl = DataLoader()
     today_dt = datetime.date.today()
     end_date = today_dt.strftime("%Y-%m-%d")
-    start_date = (today_dt - datetime.timedelta(days=25)).strftime("%Y-%m-%d")
+    # 歷史拉長到 35 天，確保遇到連續假期時一定能抓到至少5個交易日
+    start_date = (today_dt - datetime.timedelta(days=35)).strftime("%Y-%m-%d")
 
     now_time = datetime.datetime.now().time()
     is_market_open = (today_dt.weekday() < 5) and (datetime.time(9, 0) <= now_time <= datetime.time(13, 35))
@@ -65,32 +66,50 @@ def run_strategy_for_line(volume_multiplier):
 
     for stock_id, stock_name in stock_list.items():
         try:
+            # 1. 抓取歷史日線大數據
             df_hist = dl.taiwan_stock_daily(stock_id=stock_id, start_date=start_date, end_date=end_date)
+            
+            # 💡 假日防呆第一關：如果連歷史資料都完全空的，直接跳過這檔股票
             if df_hist.empty:
+                reply_msg += f"📈 {stock_name}({stock_id})：⚠️暫無大數據\n\n"
                 continue
                 
             df_hist['張數'] = df_hist['Trading_Volume'] / 1000
             
+            # 2. 判斷並抓取今日最新成交狀況
             if is_market_open:
+                # 💡 盤中即時模式
                 df_tick = dl.taiwan_stock_tick(stock_id=stock_id, date=end_date)
                 if not df_tick.empty:
                     current_price = df_tick['price'].iloc[-1]
                     today_volume = df_tick['volume'].sum() / 1000
+                    # 基準是歷史最後5天的平均（不含今天）
                     five_day_avg = df_hist['張數'].tail(5).mean()
                     status_lbl = " (即時)"
                 else:
+                    # 盤中連線如果遇到證交所塞車，自動切換成最後一天
                     latest_day = df_hist.iloc[-1]
                     current_price = latest_day['close']
                     today_volume = latest_day['張數']
                     five_day_avg = df_hist['張數'].rolling(5).mean().iloc[-1]
                     status_lbl = ""
             else:
+                # 💡 盤後 / 假日模式（自動抓最後一個有效開盤日的成交量）
                 latest_day = df_hist.iloc[-1]
                 current_price = latest_day['close']
                 today_volume = latest_day['張數']
-                five_day_avg = df_hist['張數'].rolling(5).mean().iloc[-1]
-                status_lbl = ""
+                # 均量則排除最後一天，改抓最後第2到第6天的平均量，這樣計算爆量才精準
+                five_day_avg = df_hist['張數'].iloc[-6:-1].mean()
+                # 如果歷史資料太少，就用滾動平均保底
+                if pd.isna(five_day_avg):
+                    five_day_avg = df_hist['張數'].rolling(5).mean().iloc[-1]
+                status_lbl = " (休市)"
 
+            # 💡 假日防呆第二關：確保抓出來的數字不是空的（NaN），否則給予預設值 0
+            if pd.isna(today_volume): today_volume = 0.0
+            if pd.isna(five_day_avg) or five_day_avg == 0: five_day_avg = 1.0
+
+            # 3. 計算爆量策略
             is_volume_up = today_volume > (five_day_avg * volume_multiplier)
             status_text = f"🎉 爆量({volume_multiplier}倍)" if is_volume_up else "❌ 未達標"
             
@@ -103,8 +122,8 @@ def run_strategy_for_line(volume_multiplier):
             reply_msg += f" 🔹狀態：{status_text}\n\n"
             
             time.sleep(0.3)
-        except Exception:
-            reply_msg += f"⚠️ {stock_name}({stock_id}) 連線超時\n\n"
+        except Exception as e:
+            reply_msg += f"⚠️ {stock_name}({stock_id}) 分析卡死\n\n"
 
     reply_msg += "-------------------------\n"
     if matched_stocks:
@@ -184,7 +203,7 @@ def handle_message(event):
         except Exception:
             line_bot_api.reply_message(event.reply_token, TextSendMessage(text="❌ 刪除失敗，請輸入正確快捷格式，例如：4 3042"))
 
-    # 💡 快捷鍵選單提示文字
+    # 💡 快捷鍵選單提示文字 (當手滑亂打字或打錯指令時)
     else:
         info_text = "🤖 您好！我是您的台股 AI 助手。\n\n"
         info_text += "您可以直接輸入【數字】或【英文】捷徑來控制我：\n"
@@ -198,5 +217,5 @@ def handle_message(event):
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=info_text))
 
 if __name__ == "__main__":
-    # 💡 終極強制修正：不再讀取環境變數，直接把開機通訊 Port 鎖死在免費伺服器專用的 10000 上！
+    # 💡 鎖定 10000 連接埠
     app.run(host="0.0.0.0", port=10000)
