@@ -16,13 +16,13 @@ app = Flask(__name__)
 # ==================================================
 # 🔑 關鍵設定：保持您最新申請的 LINE 通關憑證
 # ==================================================
-LINE_CHANNEL_ACCESS_TOKEN = 'nVnfDE3AZrJIouniBoNSchLCpyLSL2nlwO7zr+twctQF2L1AxFqogyxLBHDay05h/B9uDrmMvjrIXTR2yhLVc9VJmwtFWwrd7Hef5V7r8uC72PbQo/nBADAsn8zSfINI+U3iEBSOTxtpI7tVHVs5IAdB04t89/1O/w1cDnyilFU='
-LINE_CHANNEL_SECRET = '376de8130a560b7b7751c0de7d071375'
+LINE_CHANNEL_ACCESS_TOKEN = 'nVnfDE3AZrJIouniBoNSchLCpyLSL2nlwO7zr+twctQF2L1AxFqogyxLBHDay05h/B9uDrmMvjrIXTR2yhLVc9VJmwtFWwrd7Hef5V7r8uC72PbQo/nBADAsn8zSfINI+U3iEBSOTxtpl7tVHVs5IAdB04t89/1O/w1cDnyilFU='
+LINE_CHANNEL_SECRET = '376de813a560b7b7751c0de7d071375'
 
 line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
 
-# 💡 升級重點：將變數移到最外層，變成可動態自訂的「全域記憶體」
+# 💡 全域記憶體變數
 global_multiplier = 1.2
 
 stock_list = {
@@ -105,7 +105,7 @@ def run_strategy_for_line(volume_multiplier):
     return reply_msg
 
 # ==================================================
-# 🌐 3. 接收 LINE 訊號與 AI 指令解析
+# 🌐 3. 接收 LINE 訊號與 指令解析
 # ==================================================
 @app.route("/callback", methods=['POST'])
 def callback():
@@ -116,43 +116,44 @@ def callback():
     except InvalidSignatureError:
         abort(400)
     return 'OK'
- @handler.add(MessageEvent, message=TextMessage)
+
+@handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
-    global global_multiplier, stock_list # 宣告使用外部的全域變數
+    global global_multiplier, stock_list
     user_msg = event.message.text.strip()
     
-    # 💡 功能一：標準選股指令（支援輸入「選股」或數字「1」）
+    # 💡 捷徑一：開始選股
     if user_msg == "選股" or user_msg == "1" or user_msg.lower() == "a":
         result_text = run_strategy_for_line(volume_multiplier=global_multiplier)
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=result_text))
         
-    # 💡 功能二：修改倍數 (支援中文字或「2 1.5」格式)
+    # 💡 捷徑二：修改倍數 (格式: 2 1.5)
     elif user_msg.startswith("修改倍數") or user_msg.startswith("2 ") or user_msg.lower().startswith("b "):
         try:
             parts = user_msg.split()
-            global_multiplier = float(parts[1]) # 自動抓取空格後面的數字
-            success_text = f"✅ 門檻倍數已成功修改為：{global_multiplier} 倍！\n下一次輸入【1】或【選股】時將自動套用新門檻。"
+            global_multiplier = float(parts[1]) # 💡 修正：精準抓取第二個欄位(數字)
+            success_text = f"✅ 門檻倍數已成功修改為：{global_multiplier} 倍！\n下一次輸入【1】時將自動套用新門檻。"
             line_bot_api.reply_message(event.reply_token, TextSendMessage(text=success_text))
         except Exception:
             line_bot_api.reply_message(event.reply_token, TextSendMessage(text="❌ 修改失敗，請輸入正確快捷格式，例如：2 1.5"))
 
-    # 💡 功能三：動態增加股票 (支援中文字或「3 2382 廣達」格式)
+    # 💡 捷徑三：增加股票 (格式: 3 2382 廣達)
     elif user_msg.startswith("增加股票") or user_msg.startswith("3 ") or user_msg.lower().startswith("c "):
         try:
             parts = user_msg.split()
-            new_id = parts[1]   # 抓取代號
-            new_name = parts[2] # 抓取名稱
+            new_id = parts[1]   # 💡 修正：精準抓取代號
+            new_name = parts[2] # 💡 修正：精準抓取名稱
             stock_list[new_id] = new_name
             success_text = f"✅ 已成功將【{new_id} {new_name}】加入監控清單！"
             line_bot_api.reply_message(event.reply_token, TextSendMessage(text=success_text))
         except Exception:
             line_bot_api.reply_message(event.reply_token, TextSendMessage(text="❌ 增加失敗，請輸入正確快捷格式，例如：3 2382 廣達"))
 
-    # 💡 功能四：動態刪除股票 (支援中文字或「4 3042」格式)
+    # 💡 捷徑四：刪除股票 (格式: 4 3042)
     elif user_msg.startswith("刪除股票") or user_msg.startswith("4 ") or user_msg.lower().startswith("d "):
         try:
             parts = user_msg.split()
-            del_id = parts[1]   # 抓取代號
+            del_id = parts[1]   # 💡 修正：精準抓取代號
             if del_id in stock_list:
                 del_name = stock_list[del_id]
                 del stock_list[del_id]
@@ -163,7 +164,7 @@ def handle_message(event):
         except Exception:
             line_bot_api.reply_message(event.reply_token, TextSendMessage(text="❌ 刪除失敗，請輸入正確快捷格式，例如：4 3042"))
 
-    # 💡 升級後的選單提示文字（同時保留中英文與數字對照）
+    # 💡 快捷鍵選單提示文字
     else:
         info_text = "🤖 您好！我是您的台股 AI 助手。\n\n"
         info_text += "您可以直接輸入【數字】或【英文】捷徑來控制我：\n"
@@ -175,9 +176,3 @@ def handle_message(event):
         info_text += "-------------------------\n"
         info_text += "💡 提示：指令與代號之間記得空一格喔！"
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=info_text))
-   
-
-
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
