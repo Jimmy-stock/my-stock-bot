@@ -12,8 +12,10 @@ if sys.stderr is None:
 
 import datetime
 import time
+import threading
 import pandas as pd
 from FinMind.data import DataLoader
+import ta  # 💡 引入專業技術分析套件
 
 # 引入 Flask 與 LINE 官方套件
 from flask import Flask, request, abort
@@ -24,20 +26,24 @@ from linebot.models import MessageEvent, TextMessage, TextSendMessage
 app = Flask(__name__)
 
 # ==================================================
-# 🔑 關鍵設定：保持您最新申請的 LINE 通關憑證 (內建自動清除換行去空格防禦)
+# 🔑 關鍵設定：保持您最新申請的 LINE 通關憑證
 # ==================================================
 RAW_TOKEN = 'GuVY6jF0Lk7japg4oWZ2jcWBVMqWpu+23kK+F3VMXL1QpRCKH5eGHJcw9ReeBp7S/B9uDrmMvjrIXTR2yhLVc9VJmwtFWwrd7Hef5V7r8uD7kFNaLQMNEQTBE6Lg5ChOPWFKTSWIjrvyX89wSdahRgdB04t89/1O/w1cDnyilFU='
 RAW_SECRET = '376de8130a560b7b7751c0de7d071375'
 
-# 💡 自動把可能混入的換行符號 \n 或前後空格徹底抹除
 LINE_CHANNEL_ACCESS_TOKEN = RAW_TOKEN.replace("\n", "").replace(" ", "").strip()
 LINE_CHANNEL_SECRET = RAW_SECRET.replace("\n", "").replace(" ", "").strip()
 
 line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
 
-# 💡 全域記憶體變數
+# ==================================================
+# 💡 全域記憶體變數 (已將定時推播 ID 移至此處方便修改)
+# ==================================================
 global_multiplier = 1.2
+
+# 💡 請填入您的 LINE User ID (傳任意文字給雷達，它會印出來給您複製)
+MY_LINE_USER_ID = 'U0be6b4f7b60cb9f3fdf8940864388da9' 
 
 stock_list = {
     '2340': '台亞',
@@ -49,19 +55,19 @@ stock_list = {
 }
 
 # ==================================================
-# 📊 核心策略 analysis 邏輯
+# 📊 核心策略分析邏輯 (爆量＋三大法人籌碼＋KD交叉)
 # ==================================================
 def run_strategy_for_line(volume_multiplier):
     dl = DataLoader()
     today_dt = datetime.date.today()
     end_date = today_dt.strftime("%Y-%m-%d")
-    start_date = (today_dt - datetime.timedelta(days=35)).strftime("%Y-%m-%d")
+    start_date = (today_dt - datetime.timedelta(days=50)).strftime("%Y-%m-%d")
 
     now_time = datetime.datetime.now().time()
     is_market_open = (today_dt.weekday() < 5) and (datetime.time(9, 0) <= now_time <= datetime.time(13, 35))
 
-    reply_msg = f"📊【台股主力爆量篩選】\n"
-    reply_msg += f"🎯 門檻：5日均量 × {volume_multiplier} 倍\n"
+    reply_msg = f"📊【台股法人級多指標篩選】\n"
+    reply_msg += f"🎯 門檻：均量 × {volume_multiplier}倍 + 三大法人買超 + KD多頭\n"
     reply_msg += f"⏰ 時間：{datetime.datetime.now().strftime('%m/%d %H:%M:%S')}\n"
     reply_msg += "-------------------------\n"
     
@@ -75,6 +81,14 @@ def run_strategy_for_line(volume_multiplier):
                 continue
                 
             df_hist['張數'] = df_hist['Trading_Volume'] / 1000
+            
+            # 使用 ta 套件計算標準 KD (9, 3, 3)
+            kd_inst = ta.momentum.StochasticOscillator(
+                high=df_hist['max'], low=df_hist['min'], close=df_hist['close'], 
+                window=9, smooth_window=3
+            )
+            df_hist['K'] = kd_inst.stoch().round(1)
+            df_hist['D'] = kd_inst.stoch_signal().round(1)
             
             if is_market_open:
                 df_tick = dl.taiwan_stock_tick(stock_id=stock_id, date=end_date)
@@ -101,31 +115,80 @@ def run_strategy_for_line(volume_multiplier):
             if pd.isna(today_volume): today_volume = 0.0
             if pd.isna(five_day_avg) or five_day_avg == 0: five_day_avg = 1.0
 
-            is_volume_up = today_volume > (five_day_avg * volume_multiplier)
-            status_text = f"🎉 爆量({volume_multiplier}倍)" if is_volume_up else "❌ 未達標"
+            # 抓取法人籌碼面數據
+            df_inst = dl.taiwan_stock_institutional_investors(stock_id=stock_id, start_date=start_date, end_date=end_date)
+            foreign_buy = 0
+            investment_buy = 0
             
-            if is_volume_up:
-                matched_stocks.append(stock_name)
+            if not df_inst.empty:
+                last_inst_date = df_inst['date'].max()
+                df_last_inst = df_inst[df_inst['date'] == last_inst_date]
                 
-            reply_msg += f"📈 {stock_name}({stock_id})：{current_price}元{status_lbl}\n"
-            reply_msg += f" 🔹今日：{today_volume:.1f}張\n"
-            reply_msg += f" 🔹均量：{five_day_avg:.1f}張\n"
-            reply_msg += f" 🔹狀態：{status_text}\n\n"
+                f_data = df_last_inst[df_last_inst['name'] == 'Foreign_Investor']
+                it_data = df_last_inst[df_last_inst['name'] == 'Investment_Trust']
+                
+                if not f_data.empty: foreign_buy = int(f_data['buy'].sum() - f_data['sell'].sum()) / 1000
+                if not it_data.empty: investment_buy = int(it_data['buy'].sum() - it_data['sell'].sum()) / 1000
+
+            is_volume_up = today_volume > (five_day_avg * volume_multiplier)
+            is_chip_clean = (foreign_buy > 0) or (investment_buy > 0)
+            
+            current_k = df_hist['K'].iloc[-1]
+            current_d = df_hist['D'].iloc[-1]
+            prev_k = df_hist['K'].iloc[-2]
+            prev_d = df_hist['D'].iloc[-2]
+            
+            kd_text = f"K:{current_k}/D:{current_d}"
+            if prev_k <= prev_d and current_k > current_d:
+                kd_status = "🌟 黃金交叉"
+            elif current_k > current_d:
+                kd_status = "📈 K>D 多頭"
+            else:
+                kd_status = "📉 K<D 空頭"
+
+            if is_volume_up and is_chip_clean and (current_k > current_d):
+                matched_stocks.append(stock_name)
+                star_icon = "🔥"
+            else:
+                star_icon = "📈"
+
+            reply_msg += f"{star_icon} {stock_name}({stock_id})：{current_price}元{status_lbl}\n"
+            reply_msg += f" 🔹今日：{today_volume:.1f}張 / 5日均：{five_day_avg:.1f}張\n"
+            reply_msg += f" 🔹外資：{'+' if foreign_buy>0 else ''}{foreign_buy:.1f}張 / 投信：{'+' if investment_buy>0 else ''}{investment_buy:.1f}張\n"
+            reply_msg += f" 🔹技術：{kd_text} ({kd_status})\n\n"
             
             time.sleep(0.3)
         except Exception:
-            reply_msg += f"⚠️ {stock_name}({stock_id}) 分析卡死\n\n"
+            reply_msg += f"⚠️ {stock_name}({stock_id}) 分析超時\n\n"
 
     reply_msg += "-------------------------\n"
     if matched_stocks:
-        reply_msg += f"🔥 爆量攻擊標的：【 {', '.join(matched_stocks)} 】"
+        reply_msg += f"🚀 法人現形強勢股：【 {', '.join(matched_stocks)} 】"
     else:
-        reply_msg += "😭 今日暫無符合門檻個股。"
+        reply_msg += "😭 今日暫無多指標共振個股。"
         
     return reply_msg
 
 # ==================================================
-# 🌐 3. 接收 LINE 訊號與 指令解析
+# ⏰ 自動定時主動推播模組 (每週一至週五 13:40 自動發送)
+# ==================================================
+def cron_job_timer():
+    while True:
+        try:
+            now = datetime.datetime.now()
+            if now.weekday() < 5 and now.hour == 13 and now.minute == 40 and now.second < 30:
+                report_text = run_strategy_for_line(volume_multiplier=global_multiplier)
+                line_bot_api.push_message(MY_LINE_USER_ID, TextSendMessage(text=f"🔔【盤後定時自動回報】\n\n{report_text}"))
+                time.sleep(40)
+        except Exception:
+            pass
+        time.sleep(15)
+
+timer_thread = threading.Thread(target=cron_job_timer, daemon=True)
+timer_thread.start()
+
+# ==================================================
+# 🌐 3. 接收 LINE 訊號與指令解析
 # ==================================================
 @app.route("/callback", methods=['POST'])
 def callback():
@@ -141,17 +204,15 @@ def callback():
 def handle_message(event):
     global global_multiplier, stock_list
     user_msg = event.message.text.strip()
+    user_id = event.source.user_id
     
-    # 💡 捷徑一：開始選股
     if user_msg == "選股" or user_msg == "1" or user_msg.lower() == "a":
         result_text = run_strategy_for_line(volume_multiplier=global_multiplier)
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=result_text))
         return
 
-    # 拆解參數
     parts = user_msg.split()
     
-    # 💡 捷徑二：修改倍數 (格式: 2 1.5)
     if user_msg.startswith("修改倍數") or user_msg.startswith("2 ") or user_msg.lower().startswith("b "):
         try:
             if len(parts) >= 2:
@@ -163,7 +224,6 @@ def handle_message(event):
         except Exception:
             line_bot_api.reply_message(event.reply_token, TextSendMessage(text="❌ 修改失敗，請輸入正確數字，例如：2 1.5"))
 
-    # 💡 捷徑三：增加股票 (格式: 3 2382 廣達)
     elif user_msg.startswith("增加股票") or user_msg.startswith("3 ") or user_msg.lower().startswith("c "):
         try:
             if len(parts) >= 3:
@@ -177,35 +237,8 @@ def handle_message(event):
         except Exception:
             line_bot_api.reply_message(event.reply_token, TextSendMessage(text="❌ 增加失敗，請輸入正確快捷格式，例如：3 2382 廣達"))
 
-    # 💡 捷徑四：刪除股票 (格式: 4 3042)
     elif user_msg.startswith("刪除股票") or user_msg.startswith("4 ") or user_msg.lower().startswith("d "):
         try:
             if len(parts) >= 2:
                 del_id = str(parts[1])
                 if del_id in stock_list:
-                    del_name = stock_list[del_id]
-                    del stock_list[del_id]
-                    success_text = f"❌ 已成功將【{del_id} {del_name}】從清單中移除！"
-                else:
-                    success_text = f"⚠️ 刪除失敗：清單中原本就沒有 {del_id} 這檔股票。"
-            else:
-                success_text = "❌ 格式錯誤！請輸入【4 代號】，例如：4 3042"
-            line_bot_api.reply_message(event.reply_token, TextSendMessage(text=success_text))
-        except Exception:
-            line_bot_api.reply_message(event.reply_token, TextSendMessage(text="❌ 刪除失敗，請輸入正確快捷格式，例如：4 3042"))
-
-    # 💡 快捷鍵選單提示文字
-    else:
-        info_text = "🤖 您好！我是您的台股 AI 助手。\n\n"
-        info_text += "您可以直接輸入【數字】或【英文】捷徑來控制我：\n"
-        info_text += "-------------------------\n"
-        info_text += "👉 【1】或【A】 : 開始大數據選股\n"
-        info_text += "👉 【2 1.5】或【B 1.5】 : 調整門檻倍數\n"
-        info_text += "👉 【3 2382 廣達】或【C 2382 廣達】 : 加入監控\n"
-        info_text += "👉 【4 3042】或【D 3042】 : 移除個股\n"
-        info_text += "-------------------------\n"
-        info_text += "💡 提示：指令與代號之間記得空一格喔！"
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=info_text))
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000)
