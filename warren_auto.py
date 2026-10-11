@@ -26,11 +26,12 @@ from linebot.models import MessageEvent, TextMessage, TextSendMessage
 app = Flask(__name__)
 
 # ==================================================
-# 🔑 關鍵設定：保持您最新申請的 LINE 通關憑證
+# 🔑 關鍵設定：100% 精準對齊 Jimmy 大大最新提供的真實 LINE 通關憑證
 # ==================================================
-RAW_TOKEN = 'GuVY6jF0Lk7japg4oWZ2jcWBVMqWpu+23kK+F3VMXL1QpRCKH5eGHJcw9ReeBp7S/B9uDrmMvjrIXTR2yhLVc9VJmwtFWwrd7Hef5V7r8uD7kFNaLQMNEQTBE6Lg5ChOPWFKTSWIjrvyX89wSdahRgdB04t89/1O/w1cDnyilFU='
-RAW_SECRET = '376de8130a560b7b7751c0de7d071375'
+RAW_TOKEN = 'GuVY6jF0Lk7japg4oWZ2jcWBVMqWpu+23kK+F3VMXL1QpRCKH5eGHJcw9ReeBp7S/B9uDrmMvjrIXTR2yhLVc9VJmwtFWwrd7Hef5V7r8uD72bFNaLQMNEQTBE6Lg5ChOPWFKTSWljrvyX89wSdahRgdB04t89/1O/w1cDnyilFU='
+RAW_SECRET = '376de813a560b7b7751c0de7d071375'
 
+# 💡 自動清除換行與空白防護
 LINE_CHANNEL_ACCESS_TOKEN = RAW_TOKEN.replace("\n", "").replace(" ", "").strip()
 LINE_CHANNEL_SECRET = RAW_SECRET.replace("\n", "").replace(" ", "").strip()
 
@@ -38,7 +39,7 @@ line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
 
 # ==================================================
-# 💡 全域記憶體變數 (已將定時推播 ID 移至此處方便修改)
+# 💡 全域記憶體變數
 # ==================================================
 global_multiplier = 1.2
 
@@ -242,8 +243,6 @@ def handle_message(event):
             if len(parts) >= 2:
                 del_id = str(parts[1])
                 if del_id in stock_list:
-                    
-            if del_id in stock_list:
                 del_name = stock_list[del_id]
                 del stock_list[del_id]
                 success_text = f"❌ 已成功將【{del_id} {del_name}】從清單中移除！"
@@ -257,7 +256,7 @@ def handle_message(event):
     else:
         info_text = f"🤖 您好！我是您的台股頂級 AI 助手。\n\n"
         info_text += f"🔑 您的個人 LINE ID 碼為：\n【 {user_id} 】\n"
-        info_text += "(若要啟動13:40定時回報，請將這串代碼複製並修改到您 GitHub 程式碼第 41 行的變數中喔！)\n\n"
+        info_text += "(若要啟動13:40定時回報，請將這串代碼複製並修改到您 GitHub 程式碼第 45 行的變數中喔！)\n\n"
         info_text += "您可以直接輸入【數字】捷徑來控制我：\n"
         info_text += "-------------------------\n"
         info_text += "👉 【1】 : 開始法人級多指標選股\n"
@@ -271,5 +270,3 @@ def handle_message(event):
 if __name__ == "__main__":
     # 💡 鎖定 10000 連接埠
     app.run(host="0.0.0.0", port=10000)
-
-                    
