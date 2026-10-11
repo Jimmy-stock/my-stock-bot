@@ -1,5 +1,5 @@
 # ==================================================
-# 💡 終極防爆：解決雲端無黑視窗環境導致 FinMind 崩潰的 Bug
+# 💡 終極防爆：解決雲端無黑視窗環境導致 FinMind 崩潰的 Bug (絕對不能漏掉這段)
 # ==================================================
 import sys
 import os
@@ -141,7 +141,7 @@ def handle_message(event):
     elif user_msg.startswith("修改倍數") or user_msg.startswith("2 ") or user_msg.lower().startswith("b "):
         try:
             parts = user_msg.split()
-            global_multiplier = float(parts[1]) # 💡 修正：精準指定抓取第2個欄位(數字)
+            global_multiplier = float(parts[1])
             success_text = f"✅ 門檻倍數已成功修改為：{global_multiplier} 倍！\n下一次輸入【1】時將自動套用新門檻。"
             line_bot_api.reply_message(event.reply_token, TextSendMessage(text=success_text))
         except Exception:
@@ -151,8 +151,8 @@ def handle_message(event):
     elif user_msg.startswith("增加股票") or user_msg.startswith("3 ") or user_msg.lower().startswith("c "):
         try:
             parts = user_msg.split()
-            new_id = str(parts[1])   # 💡 修正：精準指定抓取第2個欄位(代號)
-            new_name = str(parts[2]) # 💡 修正：精準指定抓取第3個欄位(名稱)
+            new_id = str(parts[1])
+            new_name = str(parts[2])
             stock_list[new_id] = new_name
             success_text = f"✅ 已成功將【{new_id} {new_name}】加入監控清單！"
             line_bot_api.reply_message(event.reply_token, TextSendMessage(text=success_text))
@@ -163,7 +163,7 @@ def handle_message(event):
     elif user_msg.startswith("刪除股票") or user_msg.startswith("4 ") or user_msg.lower().startswith("d "):
         try:
             parts = user_msg.split()
-            del_id = str(parts[1])   # 💡 修正：精準指定抓取第2個欄位(代號)
+            del_id = str(parts[1])
             if del_id in stock_list:
                 del_name = stock_list[del_id]
                 del stock_list[del_id]
@@ -186,3 +186,7 @@ def handle_message(event):
         info_text += "-------------------------\n"
         info_text += "💡 提示：指令與代號之間記得空一格喔！"
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=info_text))
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
