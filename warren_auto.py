@@ -26,7 +26,7 @@ app = Flask(__name__)
 # ==================================================
 # 🔑 關鍵設定：保持您最新申請的 LINE 通關憑證 (內建自動清除換行去空格防禦)
 # ==================================================
-RAW_TOKEN = 'nVnfDE3AZrJIouniBoNSchLCpyLSL2nlwO7zr+twctQF2L1AxFqogyxLBHDay05h/B9uDrmMvjrIXTR2yhLVc9VJmwtFWwrd7Hef5V7r8uC72PbQo/nBADAsn8zSfINI+U3iEBSOTxtpl7tVHVs5IAdB04t89/1O/w1cDnyilFU='
+RAW_TOKEN = 'GuVY6jF0Lk7japg4oWZ2jcWBVMqWpu+23kK+F3VMXL1QpRCKH5eGHJcw9ReeBp7S/B9uDrmMvjrIXTR2yhLVc9VJmwtFWwrd7Hef5V7r8uD7kFNaLQMNEQTBE6Lg5ChOPWFKTSWIjrvyX89wSdahRgdB04t89/1O/w1cDnyilFU='
 RAW_SECRET = '376de813a560b7b7751c0de7d071375'
 
 # 💡 自動把可能混入的換行符號 \n 或前後空格徹底抹除
