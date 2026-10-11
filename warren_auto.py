@@ -116,7 +116,7 @@ def callback():
     except InvalidSignatureError:
         abort(400)
     return 'OK'
-
+    
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
     global global_multiplier, stock_list # 宣告使用外部的全域變數
@@ -131,7 +131,7 @@ def handle_message(event):
     elif user_msg.startswith("修改倍數"):
         try:
             parts = user_msg.split()
-            global_multiplier = float(parts[1])
+            global_multiplier = float(parts[1]) # 💡 修正：精準抓取第二個欄位(數字)
             success_text = f"✅ 門檻倍數已成功修改為：{global_multiplier} 倍！\n下一次輸入【選股】時將自動套用新門檻。"
             line_bot_api.reply_message(event.reply_token, TextSendMessage(text=success_text))
         except Exception:
@@ -141,8 +141,8 @@ def handle_message(event):
     elif user_msg.startswith("增加股票"):
         try:
             parts = user_msg.split()
-            new_id = parts[1]
-            new_name = parts[2]
+            new_id = parts[1]   # 💡 修正：精準抓取代號
+            new_name = parts[2] # 💡 修正：精準抓取名稱
             stock_list[new_id] = new_name
             success_text = f"✅ 已成功將【{new_id} {new_name}】加入監控清單！"
             line_bot_api.reply_message(event.reply_token, TextSendMessage(text=success_text))
@@ -153,7 +153,7 @@ def handle_message(event):
     elif user_msg.startswith("刪除股票"):
         try:
             parts = user_msg.split()
-            del_id = parts[1]
+            del_id = parts[1]   # 💡 修正：精準抓取代號
             if del_id in stock_list:
                 del_name = stock_list[del_id]
                 del stock_list[del_id]
@@ -173,6 +173,7 @@ def handle_message(event):
         info_text += "👉 3. 輸入【增加股票 2382 廣達】加入監控\n"
         info_text += "👉 4. 輸入【刪除股票 3042】移除個股"
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=info_text))
+
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
