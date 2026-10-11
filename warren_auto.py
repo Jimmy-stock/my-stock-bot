@@ -122,38 +122,38 @@ def handle_message(event):
     global global_multiplier, stock_list # 宣告使用外部的全域變數
     user_msg = event.message.text.strip()
     
-    # 💡 功能一：標準選股指令
-    if user_msg == "選股":
+    # 💡 功能一：標準選股指令（支援輸入「選股」或數字「1」）
+    if user_msg == "選股" or user_msg == "1" or user_msg.lower() == "a":
         result_text = run_strategy_for_line(volume_multiplier=global_multiplier)
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=result_text))
         
-    # 💡 功能二：手機直接遙控修改倍數 (格式: 修改倍數 1.5)
-    elif user_msg.startswith("修改倍數"):
+    # 💡 功能二：修改倍數 (支援中文字或「2 1.5」格式)
+    elif user_msg.startswith("修改倍數") or user_msg.startswith("2 ") or user_msg.lower().startswith("b "):
         try:
             parts = user_msg.split()
-            global_multiplier = float(parts[1]) # 💡 修正：精準抓取第二個欄位(數字)
-            success_text = f"✅ 門檻倍數已成功修改為：{global_multiplier} 倍！\n下一次輸入【選股】時將自動套用新門檻。"
+            global_multiplier = float(parts[1]) # 自動抓取空格後面的數字
+            success_text = f"✅ 門檻倍數已成功修改為：{global_multiplier} 倍！\n下一次輸入【1】或【選股】時將自動套用新門檻。"
             line_bot_api.reply_message(event.reply_token, TextSendMessage(text=success_text))
         except Exception:
-            line_bot_api.reply_message(event.reply_token, TextSendMessage(text="❌ 修改失敗，請輸入正確格式，例如：修改倍數 1.5"))
+            line_bot_api.reply_message(event.reply_token, TextSendMessage(text="❌ 修改失敗，請輸入正確快捷格式，例如：2 1.5"))
 
-    # 💡 功能三：手機直接動態增加股票 (格式: 增加股票 2382 廣達)
-    elif user_msg.startswith("增加股票"):
+    # 💡 功能三：動態增加股票 (支援中文字或「3 2382 廣達」格式)
+    elif user_msg.startswith("增加股票") or user_msg.startswith("3 ") or user_msg.lower().startswith("c "):
         try:
             parts = user_msg.split()
-            new_id = parts[1]   # 💡 修正：精準抓取代號
-            new_name = parts[2] # 💡 修正：精準抓取名稱
+            new_id = parts[1]   # 抓取代號
+            new_name = parts[2] # 抓取名稱
             stock_list[new_id] = new_name
             success_text = f"✅ 已成功將【{new_id} {new_name}】加入監控清單！"
             line_bot_api.reply_message(event.reply_token, TextSendMessage(text=success_text))
         except Exception:
-            line_bot_api.reply_message(event.reply_token, TextSendMessage(text="❌ 增加失敗，請輸入正確格式，例如：增加股票 2382 廣達"))
+            line_bot_api.reply_message(event.reply_token, TextSendMessage(text="❌ 增加失敗，請輸入正確快捷格式，例如：3 2382 廣達"))
 
-    # 💡 功能四：手機直接動態刪除股票 (格式: 刪除股票 3042)
-    elif user_msg.startswith("刪除股票"):
+    # 💡 功能四：動態刪除股票 (支援中文字或「4 3042」格式)
+    elif user_msg.startswith("刪除股票") or user_msg.startswith("4 ") or user_msg.lower().startswith("d "):
         try:
             parts = user_msg.split()
-            del_id = parts[1]   # 💡 修正：精準抓取代號
+            del_id = parts[1]   # 抓取代號
             if del_id in stock_list:
                 del_name = stock_list[del_id]
                 del stock_list[del_id]
@@ -162,18 +162,20 @@ def handle_message(event):
                 success_text = f"⚠️ 刪除失敗：清單中原本就沒有 {del_id} 這檔股票。"
             line_bot_api.reply_message(event.reply_token, TextSendMessage(text=success_text))
         except Exception:
-            line_bot_api.reply_message(event.reply_token, TextSendMessage(text="❌ 刪除失敗，請輸入正確格式，例如：刪除股票 3042"))
+            line_bot_api.reply_message(event.reply_token, TextSendMessage(text="❌ 刪除失敗，請輸入正確快捷格式，例如：4 3042"))
 
-    # 💡 其他防呆罐頭回覆
+    # 💡 升級後的選單提示文字（同時保留中英文與數字對照）
     else:
         info_text = "🤖 您好！我是您的台股 AI 助手。\n\n"
-        info_text += "您可以輸入以下指令遙控我：\n"
-        info_text += "👉 1. 輸入【選股】開始大數據分析\n"
-        info_text += "👉 2. 輸入【修改倍數 1.5】調整門檻\n"
-        info_text += "👉 3. 輸入【增加股票 2382 廣達】加入監控\n"
-        info_text += "👉 4. 輸入【刪除股票 3042】移除個股"
+        info_text += "您可以直接輸入【數字】或【英文】捷徑來控制我：\n"
+        info_text += "-------------------------\n"
+        info_text += "👉 【1】或【A】 : 開始大數據選股\n"
+        info_text += "👉 【2 1.5】或【B 1.5】 : 調整門檻倍數\n"
+        info_text += "👉 【3 2382 廣達】或【C 2382 廣達】 : 加入監控\n"
+        info_text += "👉 【4 3042】或【D 3042】 : 移除個股\n"
+        info_text += "-------------------------\n"
+        info_text += "💡 提示：指令與代號之間記得空一格喔！"
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=info_text))
-
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
