@@ -44,7 +44,7 @@ handler = WebhookHandler(LINE_CHANNEL_SECRET)
 global_multiplier = 1.2
 
 # 💡 請填入您的 LINE User ID (傳任意文字給雷達，它會印出來給您複製)
-MY_LINE_USER_ID = 'U0be6b4f7b60cb9f3fdf8940864388da9' 
+MY_LINE_USER_ID = 'Uc5021074b341423eb34f332cea077309' 
 
 stock_list = {
     '2340': '台亞',
