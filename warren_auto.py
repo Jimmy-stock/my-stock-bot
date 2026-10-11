@@ -238,31 +238,14 @@ def handle_message(event):
         except Exception:
             line_bot_api.reply_message(event.reply_token, TextSendMessage(text="❌ 增加失敗，請輸入正確快捷格式，例如：3 2382 廣達"))
 
-    elif user_msg.startswith("刪除股票") or user_msg.startswith("4 ") or user_msg.lower().startswith("d "):
-        try:
-            if len(parts) >= 2:
-                del_id = str(parts[1])
-                if del_id in stock_list:
-                del_name = stock_list[del_id]
-                del stock_list[del_id]
-                success_text = f"❌ 已成功將【{del_id} {del_name}】從清單中移除！"
-            else:
-                success_text = f"⚠️ 刪除失敗：清單中原本就沒有 {del_id} 這檔股票。"
-            line_bot_api.reply_message(event.reply_token, TextSendMessage(text=success_text))
-        except Exception:
-            line_bot_api.reply_message(event.reply_token, TextSendMessage(text="❌ 刪除失敗，請輸入正確快捷格式，例如：4 3042"))
-
     # 💡 快捷鍵選單提示文字 (當手滑亂打字或打錯指令時)
     else:
         info_text = f"🤖 您好！我是您的台股頂級 AI 助手。\n\n"
-        info_text += f"🔑 您的個人 LINE ID 碼為：\n【 {user_id} 】\n"
-        info_text += "(若要啟動13:40定時回報，請將這串代碼複製並修改到您 GitHub 程式碼第 45 行的變數中喔！)\n\n"
         info_text += "您可以直接輸入【數字】捷徑來控制我：\n"
         info_text += "-------------------------\n"
         info_text += "👉 【1】 : 開始法人級多指標選股\n"
         info_text += "👉 【2 1.5】 : 調整量增門檻倍數\n"
         info_text += "👉 【3 2382 廣達】 : 加入監控個股\n"
-        info_text += "👉 【4 3042】 : 移除監控個股\n"
         info_text += "-------------------------\n"
         info_text += "💡 提示：指令與參數之間記得空一格喔！"
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=info_text))
