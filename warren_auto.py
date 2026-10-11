@@ -16,7 +16,7 @@ app = Flask(__name__)
 # ==================================================
 # 🔑 關鍵設定：已為您精準填入最新申請的 LINE 通關憑證
 # ==================================================
-LINE_CHANNEL_ACCESS_TOKEN = 'nVnfDE3AZrJIouniBoNSchLCpyLSL2nlwO7zr+twctQF2L1AxFqogyxLBHDay05h/B9uDrmMvjrIXTR2yhLVc9VJmwtFWwrd7Hef5V7r8uC72PbQo/nBADAsn8zSfINI+U3iEBSOTxtpl7tVHVs5IAdB04t89/1O/w1cDnyilFU='
+LINE_CHANNEL_ACCESS_TOKEN = 'nVnfDE3AZrJIouniBoNSchLCpyLSL2nlwO7zr+twctQF2L1AxFqogyxLBHDay05h/B9uDrmMvjrIXTR2yhLVc9VJmwtFWwrd7Hef5V7r8uC72PbQo/nBADAsn8zSfINI+U3iEBSOTxtpI7tVHVs5IAdB04t89/1O/w1cDnyilFU='
 LINE_CHANNEL_SECRET = '376de8130a560b7b7751c0de7d071375'
 
 line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
