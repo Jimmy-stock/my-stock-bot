@@ -26,12 +26,13 @@ from linebot.models import MessageEvent, TextMessage, TextSendMessage
 app = Flask(__name__)
 
 # ==================================================
-# 🔑 關鍵設定：100% 精準對齊 Jimmy 大大最新提供的真實 LINE 通關憑證
+# 🔑 安全修改：從雲端環境變數讀取金鑰，GitHub 上完全看不到真密碼！
 # ==================================================
-RAW_TOKEN = 'abcde'
-RAW_SECRET = '12345'
+# 💡 os.getenv 會去讀取系統環境變數，括號內是變數名稱
+RAW_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN", "")
+RAW_SECRET = os.getenv("LINE_CHANNEL_SECRET", "")
 
-# 💡 自動清除換行與空白防護
+# 自動清除換行與空白防護
 LINE_CHANNEL_ACCESS_TOKEN = RAW_TOKEN.replace("\n", "").replace(" ", "").strip()
 LINE_CHANNEL_SECRET = RAW_SECRET.replace("\n", "").replace(" ", "").strip()
 
@@ -210,66 +211,8 @@ def handle_message(event):
     if user_msg == "選股" or user_msg == "1" or user_msg.lower() == "a":
         result_text = run_strategy_for_line(volume_multiplier=global_multiplier)
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=result_text))
-        return
-
-    parts = user_msg.split()
-    
-    if user_msg.startswith("修改倍數") or user_msg.startswith("2 ") or user_msg.lower().startswith("b "):
-        try:
-            if len(parts) >= 2:
-                global_multiplier = float(parts[1])
-                success_text = f"✅ 門檻倍數已成功修改為：{global_multiplier} 倍！\n下一次輸入【1】時將自動套用新門檻。"
-            else:
-                success_text = "❌ 格式錯誤！請輸入【2 數字】，例如：2 1.5"
-            line_bot_api.reply_message(event.reply_token, TextSendMessage(text=success_text))
-        except Exception:
-            line_bot_api.reply_message(event.reply_token, TextSendMessage(text="❌ 修改失敗，請輸入正確數字，例如：2 1.5"))
-
-    elif user_msg.startswith("增加股票") or user_msg.startswith("3 ") or user_msg.lower().startswith("c "):
-        try:
-            if len(parts) >= 3:
-                new_id = str(parts[1])
-                new_name = str(parts[2])
-                stock_list[new_id] = new_name
-                success_text = f"✅ 已成功將【{new_id} {new_name}】加入監控清單！"
-            else:
-                success_text = "❌ 格式錯誤！請輸入【3 代號 名稱】，例如：3 2382 廣達"
-            line_bot_api.reply_message(event.reply_token, TextSendMessage(text=success_text))
-        except Exception:
-            line_bot_api.reply_message(event.reply_token, TextSendMessage(text="❌ 增加失敗，請輸入正確快捷格式，例如：3 2382 廣達"))
-
-      # 💡 捷徑四：刪除股票 (獨立防護版，格式: 4 3042)
-    elif user_msg.startswith("刪除股票") or user_msg.startswith("4 ") or user_msg.lower().startswith("d "):
-        try:
-            if len(parts) >= 2:
-                del_id = str(parts[1]).strip()
-                if del_id in stock_list:
-                    del_name = stock_list[del_id]
-                    del stock_list[del_id]
-                    success_text = f"❌ 已成功將【{del_id} {del_name}】從清單中移除！"
-                else:
-                    success_text = f"⚠️ 刪除失敗：清單中原本就沒有 {del_id} 這檔股票。"
-            else:
-                success_text = "❌ 格式錯誤！請輸入【4 代號】，例如：4 3042"
-            line_bot_api.reply_message(event.reply_token, TextSendMessage(text=success_text))
-        except Exception:
-            line_bot_api.reply_message(event.reply_token, TextSendMessage(text="❌ 刪除失敗，請輸入正確快捷格式，例如：4 3042"))
-
-    # 💡 快捷鍵選單提示文字 (4合1 完全體版)
-    else:
-        info_text = f"🤖 您好！我是您的台股頂級 AI 助手。\n\n"
-        info_text += f"🔑 您的個人 LINE ID 碼為：\n【 {user_id} 】\n"
-        info_text += "(若要啟動13:40定時回報，請將這串代碼複製並修改到您 GitHub 程式碼第 45 行的變數中喔！)\n\n"
-        info_text += "您可以直接輸入【數字】捷記來控制我：\n"
-        info_text += "-------------------------\n"
-        info_text += "👉 【1】 : 開始法人級多指標選股\n"
-        info_text += "👉 【2 1.5】 : 調整量增門檻倍數\n"
-        info_text += "👉 【3 2382 廣達】 : 加入監控個股\n"
-        info_text += "👉 【4 3042】 : 移除監控個股\n"
-        info_text += "-------------------------\n"
-        info_text += "💡 提示：指令與參數之間記得空一格喔！"
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=info_text))
 
 if __name__ == "__main__":
-    # 💡 鎖定 10000 連接埠
-    app.run(host="0.0.0.0", port=10000)
+    # Render 部署通常需要讀取 PORT 環境變數
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
