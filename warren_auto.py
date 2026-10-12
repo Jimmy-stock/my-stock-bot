@@ -28,8 +28,8 @@ app = Flask(__name__)
 # ==================================================
 # 🔑 關鍵設定：100% 精準對齊 Jimmy 大大最新提供的真實 LINE 通關憑證
 # ==================================================
-RAW_TOKEN = 'GuVY6jF0Lk7japg4oWZ2jcWBVMqWpu+23kK+F3VMXL1QpRCKH5eGHJcw9ReeBp7S/B9uDrmMvjrIXTR2yhLVc9VJmwtFWwrd7Hef5V7r8uD7kFNaLQMNEQTBE6Lg5ChOPWFKTSWIjrvyX89wSdahRgdB04t89/1O/w1cDnyilFU='
-RAW_SECRET = '376de8130a560b7b7751c0de7d071375'
+RAW_TOKEN = 'YijapvzurnxO4pWjcf4XVRuLcs/ketmWGDx2uwvsPauvwCVTSiBU8NMyMOGR/u2g/B9uDrmMvjrIXTR2yhLVc9VJmwtFWwrd7Hef5V7r8uAG0H/N54ZrJ0TNpQTjHzBDQKiBcF+WEWMaMosx4NhLvwdB04t89/1O/w1cDnyilFU='
+RAW_SECRET = '3d79077e38ce2307121aa3f1f22e694c'
 
 # 💡 自動清除換行與空白防護
 LINE_CHANNEL_ACCESS_TOKEN = RAW_TOKEN.replace("\n", "").replace(" ", "").strip()
